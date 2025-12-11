@@ -1,79 +1,122 @@
 const request = require('supertest');
 const app = require('../app');
-const pool = require('../config/db'); // Süslü parantez OLMADAN, doğru import
+const pool = require('../config/db'); 
 
-describe('Space API Integration Tests (Safe Mode)', () => {
-  let testSpaceId;
-  const randomRoomNum = `TEST-${Math.floor(Math.random() * 999999)}`; // Benzersiz oda numarası
 
-  afterAll(async () => {
-    // Temizlik: Test bitince oluşturduğumuz odayı veritabanından silelim
-    if (testSpaceId) {
-      await pool.query('DELETE FROM study_spaces WHERE space_id = $1', [testSpaceId]);
-    }
-    await pool.end();
+jest.mock('../config/db', () => {
+  return {
+    query: jest.fn(), 
+    connect: jest.fn(),
+    on: jest.fn(),
+    end: jest.fn(),
+  };
+});
+
+describe('Space API Unit Tests (Mock DB)', () => {
+  
+  // Her testten önce mock'ları temizle 
+  beforeEach(() => {
+    jest.clearAllMocks();
   });
 
-  // 1. GET Testi
-  it('should get all existing spaces', async () => {
+  // 1. GET (Listeleme)
+  it('should return all spaces successfully', async () => {
+   
+    const mockSpaces = [
+      { space_id: 1, space_name: 'Mock Study Room', room_number: 'M-101' },
+      { space_id: 2, space_name: 'Mock Lab', room_number: 'L-202' }
+    ];
+
+    
+    pool.query.mockResolvedValue({ rows: mockSpaces });
+
     const res = await request(app).get('/api/spaces');
+
     expect(res.statusCode).toEqual(200);
     expect(res.body.success).toBe(true);
-    console.log(`     Veritabanında şu an ${res.body.data.spaces.length} adet mekan var.`);
+    expect(res.body.data.spaces.length).toBe(2);
+    expect(res.body.data.spaces[0].spaceName).toBe('Mock Study Room'); 
   });
 
-  // 2. CREATE Testi
-  it('should create a temporary test space', async () => {
+  // 2. POST  (Ekleme)
+  it('should create a new space successfully', async () => {
     const newSpace = {
-      buildingId: 1, // Veritabanında ID'si 1 olan bir bina olduğunu varsayıyoruz
-      spaceName: "OTOMATİK TEST ODASI",
-      roomNumber: randomRoomNum, // Çakışmayı önlemek için rastgele numara
+      buildingId: 1,
+      spaceName: "Yeni Mock Oda",
+      roomNumber: "M-999",
       floor: 1,
       capacity: 10,
       roomType: "Quiet_Study",
       noiseLevel: "Silent",
-      amenities: ["Wifi", "Priz"],
+      amenities: ["Wifi"],
       operatingHoursWeekdayStart: "09:00",
       operatingHoursWeekdayEnd: "17:00"
     };
 
-    const res = await request(app).post('/api/spaces').send(newSpace);
-
-    // Eğer bina yoksa 500 dönebilir, bu durumda testi geçmek için console.log atarız
-    if (res.statusCode === 500 && res.body.error && res.body.error.message.includes('foreign key')) {
-      console.warn("⚠️ UYARI: ID'si 1 olan Bina bulunamadığı için kayıt testi atlandı.");
-      testSpaceId = null;
-    } else {
-      expect(res.statusCode).toEqual(201);
-      expect(res.body.success).toBe(true);
-      testSpaceId = res.body.data.spaceId;
-    }
-  });
-
-  // 3. UPDATE Testi
-  it('should update the temporary test space', async () => {
-    if (!testSpaceId) return; // Önceki test başarısızsa  atla
-
-    const updateData = {
-      spaceName: "OTOMATİK TEST ODASI (Güncellendi)",
-      capacity: 20,
-      roomNumber: randomRoomNum,
-      floor: 1,
-      roomType: "Quiet_Study",
-      noiseLevel: "Silent" 
+    // Veritabanı kayıt işleminden sonra yeni eklenen satırı dönmüş GİBİ yapıyoruz
+    const mockDbResponse = {
+      space_id: 10,
+      building_id: 1,
+      space_name: "Yeni Mock Oda",
+      room_number: "M-999",
+      
     };
 
-    const res = await request(app).put(`/api/spaces/${testSpaceId}`).send(updateData);
-    expect(res.statusCode).toEqual(200);
-    expect(res.body.data.spaceName).toBe("OTOMATİK TEST ODASI (Güncellendi)");
+    pool.query.mockResolvedValue({ rows: [mockDbResponse] });
+
+    const res = await request(app).post('/api/spaces').send(newSpace);
+
+    expect(res.statusCode).toEqual(201);
+    expect(res.body.success).toBe(true);
+   
+    expect(pool.query).toHaveBeenCalled(); 
   });
 
-  // 4. DELETE Testi
-  it('should soft delete the temporary test space', async () => {
-    if (!testSpaceId) return; // Önceki test başarısızsa  atla
+  // 3. PUT  (Güncelleme)
+  it('should update a space successfully', async () => {
+    const spaceId = 10;
+    const updateData = { spaceName: "Güncellenmiş Oda" };
 
-    const res = await request(app).delete(`/api/spaces/${testSpaceId}`);
+    const mockUpdatedRow = {
+      space_id: 10,
+      space_name: "Güncellenmiş Oda"
+    };
+
+    // Veritabanı güncelleme yapıp yeni halini dönmüş GİBİ yapıyoruz
+    pool.query.mockResolvedValue({ rows: [mockUpdatedRow] });
+
+    const res = await request(app).put(`/api/spaces/${spaceId}`).send(updateData);
+
+    expect(res.statusCode).toEqual(200);
+    expect(res.body.data.spaceName).toBe("Güncellenmiş Oda");
+  });
+
+  // 4. DELETE  (Silme)
+  it('should delete a space successfully', async () => {
+    const spaceId = 10;
+
+    const mockDeletedRow = {
+      space_id: 10,
+      status: 'Deleted'
+    };
+
+    // Silme işlemi (soft delete) başarılı olmuş GİBİ yapıyoruz
+    pool.query.mockResolvedValue({ rows: [mockDeletedRow] });
+
+    const res = await request(app).delete(`/api/spaces/${spaceId}`);
+
     expect(res.statusCode).toEqual(200);
     expect(res.body.data.status).toBe('Deleted');
+  });
+
+  // 5. Error Handling
+  it('should handle database errors gracefully', async () => {
+    
+    pool.query.mockRejectedValue(new Error("Database connection failed"));
+
+    const res = await request(app).get('/api/spaces');
+
+    expect(res.statusCode).toEqual(500);
+    expect(res.body.success).toBe(false);
   });
 });

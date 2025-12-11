@@ -1,35 +1,22 @@
 // backend/src/config/db.js
 const { Pool } = require("pg");
-const path = require("path");
-
-// .env dosyasını bulmaya çalış
-require("dotenv").config({ path: path.resolve(__dirname, "../../.env") });
-
-const connectionString = process.env.DATABASE_URL;
-
-// Eğer veritabanı URL'si yoksa hata bas (CI ortamında bazen farklı olabilir, kontrol şart)
-if (!connectionString) {
-  console.error("🚨 HATA: DATABASE_URL bulunamadı!");
-}
-
-// AKILLI SSL AYARI:
-// Eğer bağlantı 'localhost' ise (GitHub Actions veya Yerel Docker), SSL KAPALI olsun.
-// Eğer bağlantı 'render.com' ise, SSL AÇIK olsun.
-const isLocalhost = connectionString && connectionString.includes("localhost");
+require("dotenv").config();
 
 const pool = new Pool({
-  connectionString: connectionString,
-  ssl: isLocalhost ? false : { rejectUnauthorized: false }
+  connectionString: process.env.DATABASE_URL,
+  ...(process.env.NODE_ENV === 'production' && {
+    ssl: {
+      rejectUnauthorized: false   // Render için şart
+    }
+  })
 });
 
 pool.on("connect", () => {
-  if (process.env.NODE_ENV !== 'test') {
-    console.log("✅ Veritabanına bağlandı");
-  }
+  console.log("Connected to PostgreSQL database");
 });
 
 pool.on("error", (err) => {
-  console.error("❌ Veritabanı bağlantı hatası:", err);
+  console.error("PostgreSQL connection error:", err);
 });
 
 module.exports = pool;
