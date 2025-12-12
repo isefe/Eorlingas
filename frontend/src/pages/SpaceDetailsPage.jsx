@@ -1,110 +1,244 @@
-import React, { useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { spaceService } from '../services/apiService';
 import './SpaceDetailsPage.css';
 
 const SpaceDetailsPage = () => {
   const navigate = useNavigate();
-  const { id } = useParams(); // Get room ID from URL
+  const { id } = useParams();
+  
+  const [space, setSpace] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  // Booking State
-  const [date, setDate] = useState("2025-12-12");
-  const [startTime, setStartTime] = useState("09:00");
-  const [endTime, setEndTime] = useState("10:00");
+  // Check auth status
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    setIsLoggedIn(!!token);
+  }, []);
 
-  // Mock Data for "MED-C"
-  const roomDetails = {
-    name: "MED-C",
-    capacity: 100,
-    amenities: ["Wi-Fi", "Whiteboard", "Projector"],
-    noiseLevel: "Low",
-    description: "Comfortable and well-equipped study space designed to help students stay focused.",
-    image: "https://placehold.co/600x400/e5e5e5/666666?text=Study+Room+Image"
-  };
+  // Fetch Logic
+  useEffect(() => {
+    // Mock Data
+    setSpace({
+      spaceName: "Mustafa İnan Library - Group Study Room 2",
+      location: "Room 204, Mustafa İnan Library, Ayazağa Campus",
+      capacity: 25,
+      roomType: "Group Study",
+      noiseLevel: "Collaborative",
+      floor: "2nd Floor",
+      description: "A spacious and bright group study area designed for collaboration. Features large tables, comfortable seating, and ample natural light, making it an ideal spot for project work and team discussions.",
+      amenities: [
+        { name: "High-Speed Wi-Fi", icon: "wifi", positive: true },
+        { name: "Power Outlets", icon: "power", positive: true },
+        { name: "Whiteboard", icon: "edit", positive: true },
+        { name: "Projector", icon: "videocam", positive: true },
+        { name: "No Printer Access", icon: "print_disabled", positive: false },
+        { name: "Public Computers", icon: "desktop_windows", positive: true }
+      ],
+      schedule: [
+        { time: "09:00 - 10:00", status: "Booked" },
+        { time: "10:00 - 11:00", status: "Booked" },
+        { time: "11:00 - 12:00", status: "Available" },
+        { time: "12:00 - 13:00", status: "Available" },
+        { time: "13:00 - 14:00", status: "Booked" },
+        { time: "14:00 - 15:00", status: "Available" }
+      ]
+    });
+    setLoading(false);
+  }, [id]);
 
-  // Simple duration calculation logic
-  const calculateDuration = () => {
-    const start = parseInt(startTime.split(':')[0]);
-    const end = parseInt(endTime.split(':')[0]);
-    const duration = end - start;
-    return duration > 0 ? `${duration} hour(s)` : 'Invalid duration';
-  };
-
-  const handleBooking = () => {
-    alert(`Booking Confirmed for ${roomDetails.name} on ${date}!`);
-    // In the future, this will connect to the backend API
-  };
+  if (loading) return <div>Loading...</div>;
+  if (!space) return <div>Space not found</div>;
 
   return (
-    <div className="details-container">
+    <div className="details-page-container dark">
       {/* Header */}
       <header className="details-header">
-        <span className="back-btn" onClick={() => navigate('/')}>&lt; Back</span>
-        <h1 className="room-title">{roomDetails.name}</h1>
-        <span className="profile-link" onClick={() => navigate('/profile')}>Profile</span>
-      </header>
-
-      <div className="details-content">
-        {/* Left Column: Image & Booking Controls */}
-        <div className="left-column">
-          <img src={roomDetails.image} alt={roomDetails.name} className="room-image" />
-          
-          <div className="booking-card">
-            <div className="form-group">
-              <label>Select Date</label>
-              <input 
-                type="date" 
-                value={date} 
-                onChange={(e) => setDate(e.target.value)} 
-              />
-            </div>
-
-            <div className="form-group">
-              <label>Time Slot</label>
-              <div className="time-row">
-                <select value={startTime} onChange={(e) => setStartTime(e.target.value)}>
-                  <option value="09:00">9:00 AM</option>
-                  <option value="10:00">10:00 AM</option>
-                  <option value="11:00">11:00 AM</option>
-                </select>
-                <span>to</span>
-                <select value={endTime} onChange={(e) => setEndTime(e.target.value)}>
-                  <option value="10:00">10:00 AM</option>
-                  <option value="11:00">11:00 AM</option>
-                  <option value="12:00">12:00 PM</option>
-                </select>
-              </div>
-              <p className="duration-display">Duration: {calculateDuration()}</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Right Column: Room Info */}
-        <div className="right-column">
-          <div className="info-section">
-            <h3>Capacity</h3>
-            <p>{roomDetails.capacity} People</p>
+        <div className="brand-title" onClick={() => navigate('/')}>İTÜ Study Space Finder</div>
+        
+        <div className="header-nav">
+          <div className="nav-links-desktop">
+            <button className="nav-link" onClick={() => navigate('/')}>Find a Space</button>
+            <button className="nav-link" onClick={() => navigate('/profile')}>My Bookings</button>
+            
+            {!isLoggedIn ? (
+              <button className="auth-btn-header" onClick={() => navigate('/login')}>Log In</button>
+            ) : (
+              <div className="auth-btn-header" style={{backgroundColor: '#374151', cursor:'default'}}>Logged In</div>
+            )}
           </div>
 
-          <div className="info-section">
-            <h3>Amenities</h3>
-            <p>{roomDetails.amenities.join(', ')}</p>
-          </div>
-
-          <div className="info-section">
-            <h3>Noise Level</h3>
-            <p>📶 {roomDetails.noiseLevel}</p>
-          </div>
-
-          <div className="info-section">
-            <h3>Description</h3>
-            <p>{roomDetails.description}</p>
-          </div>
-
-          <button className="confirm-btn" onClick={handleBooking}>
-            Confirm Booking
+          <button 
+            className="hamburger-btn" 
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          >
+            <span className="material-symbols-outlined" style={{fontSize: '28px'}}>menu</span>
           </button>
         </div>
+      </header>
+
+      {/* Mobile Menu */}
+      <div className={`mobile-menu ${isMobileMenuOpen ? 'open' : ''}`}>
+        <button onClick={() => navigate('/')} className="nav-link" style={{textAlign:'left'}}>Find a Space</button>
+        <button className="nav-link" onClick={() => navigate('/profile')} style={{textAlign:'left'}}>My Bookings</button>
+        {!isLoggedIn && (
+          <button onClick={() => navigate('/login')} className="nav-link" style={{textAlign:'left', color: 'var(--primary-color)'}}>Log In</button>
+        )}
       </div>
+
+      {/* Main Content */}
+      <main className="details-main">
+        <div className="content-wrapper">
+          
+          <div className="details-grid">
+            
+            {/* Left Column: Details */}
+            <div className="space-info-col">
+              
+              {/* Title Section */}
+              <div className="title-section">
+                <h1 className="space-title">{space.spaceName}</h1>
+                <p className="space-location">{space.location}</p>
+              </div>
+
+              {/* Stats Grid */}
+              <div className="stats-grid">
+                <div className="stat-item">
+                  <span className="material-symbols-outlined stat-icon">groups</span>
+                  <div className="stat-text">
+                    <span className="stat-label">Capacity</span>
+                    <span className="stat-value">{space.capacity} People</span>
+                  </div>
+                </div>
+                <div className="stat-item">
+                  <span className="material-symbols-outlined stat-icon">meeting_room</span>
+                  <div className="stat-text">
+                    <span className="stat-label">Room Type</span>
+                    <span className="stat-value">{space.roomType}</span>
+                  </div>
+                </div>
+                <div className="stat-item">
+                  <span className="material-symbols-outlined stat-icon">graphic_eq</span>
+                  <div className="stat-text">
+                    <span className="stat-label">Noise Level</span>
+                    <span className="stat-value">{space.noiseLevel}</span>
+                  </div>
+                </div>
+                <div className="stat-item">
+                  <span className="material-symbols-outlined stat-icon">location_on</span>
+                  <div className="stat-text">
+                    <span className="stat-label">Floor</span>
+                    <span className="stat-value">{space.floor}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Description */}
+              <div className="info-block">
+                <h3>Description</h3>
+                <p className="description-text">{space.description}</p>
+              </div>
+
+              {/* Amenities */}
+              <div className="info-block">
+                <h3>Amenities</h3>
+                <div className="amenities-grid">
+                  {space.amenities.map((item, index) => (
+                    <div key={index} className="amenity-item">
+                      <span className={`material-symbols-outlined amenity-icon ${!item.positive ? 'negative' : ''}`}>
+                        {item.icon}
+                      </span>
+                      {item.name}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Accessibility */}
+              <div className="info-block">
+                <h3>Accessibility</h3>
+                <div className="amenities-grid">
+                  <div className="amenity-item">
+                    <span className="material-symbols-outlined amenity-icon">accessible</span>
+                    Wheelchair Accessible
+                  </div>
+                  <div className="amenity-item">
+                    <span className="material-symbols-outlined amenity-icon">wc</span>
+                    Accessible Restrooms
+                  </div>
+                </div>
+              </div>
+
+              {/* Operating Hours */}
+              <div className="info-block">
+                <h3>Operating Hours</h3>
+                <div className="hours-list">
+                  <div className="hours-row">
+                    <span>Monday - Friday</span>
+                    <span style={{fontWeight: 500}}>08:00 - 22:00</span>
+                  </div>
+                  <div className="hours-row">
+                    <span>Saturday - Sunday</span>
+                    <span style={{fontWeight: 500}}>10:00 - 20:00</span>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Right Column: Availability Sidebar */}
+            <div className="sidebar-col">
+              <div className="availability-card">
+                <h3 className="card-title">Availability</h3>
+                
+                <div className="input-group">
+                  <label className="stat-label" style={{marginBottom:'8px', display:'block'}}>Select a Date</label>
+                  <div className="date-input-wrapper">
+                    <input 
+                      type="date" 
+                      className="date-input" 
+                      value={date}
+                      onChange={(e) => setDate(e.target.value)}
+                    />
+                    <span className="material-symbols-outlined calendar-icon">calendar_today</span>
+                  </div>
+                </div>
+
+                <div>
+                  <p style={{fontWeight: 500, marginBottom: '12px'}}>Today's Schedule</p>
+                  <div className="schedule-list">
+                    {space.schedule.map((slot, index) => (
+                      <div key={index} className="schedule-item">
+                        <span className="time-text">{slot.time}</span>
+                        <span className={`status-text ${slot.status.toLowerCase()}`}>
+                          {slot.status}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Conditional Login Box */}
+                {!isLoggedIn ? (
+                  <div className="login-prompt-box">
+                    <span className="material-symbols-outlined lock-icon">lock</span>
+                    <p className="prompt-text">You must be logged in to book a space</p>
+                  </div>
+                ) : (
+                  <button className="auth-btn-header" style={{width: '100%'}}>
+                    Book Selected Slot
+                  </button>
+                )}
+
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </main>
     </div>
   );
 };
